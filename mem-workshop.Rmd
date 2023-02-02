@@ -1,0 +1,176 @@
+---
+title: "Linear Mixed Effects Modeling Workshop"
+author: "Joe Celebrezze"
+date: "2023-02-02"
+output: html_document
+---
+# Setup
+
+## Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# These are the two *easiest* R packages for mixed effects modeling that I am aware of:
+#install.packages('lme4')
+library(lme4) # I picked out this one to use in more depth, but not for any specific reasons that I remember
+#install.packages('nlme')
+library(nlme)
+# Other packages for running mixed effects models with more complex model structures and that have more of a focus on Bayesian statistics than lme4 or nlme are rjags, INLA and rstan; however, I have no experience using these
+
+# Other useful packages that we were using:
+# For model results tables:
+#devtools::install_github("strengejacke/strengejacke")
+library(strengejacke)
+library(sjPlot) # tab_model for MEM or linear regression results tables
+# For multicolinearity assumptions:
+library(performance)
+
+library(tidyverse)
+```
+
+## Dataset
+```{r}
+data <- read.csv('flam.data.csv')
+data <- data %>% 
+  select(individual, sample, spp, model, mpa, lfm, dw.flam.sample, tti, fh, fd, temp.max, gd, ttfg, gti, pfg, ignition, PC1, start.temp, sample.wt, year.month, site)
+#write.csv(data,'flam.data2.csv')
+```
+
+**Predictors**:
+lfm: Live fuel moisture (%)
+mpa: Water potential (MPa)
+dw.flam.sample: Dry weight of the sample loaded onto the epiradiator (calculated using sample.wt and lfm)
+
+**Dependent Variables** (of interest):
+tti: time to ignition (seconds)
+fh: flame height (cm)
+fd: flame duration (seconds)
+temp.max: maximum temperature (degrees C)
+
+**Covariates**:
+spp: CEME = *Ceanothus megacarpus* (Bigpod Ceanothus) and ADFA = *Adenostoma fasciculatum* (Chamise)
+sample.wt
+site
+year.month
+start.temp
+
+# Ex. 1: Predicting TTI
+Only looking at instances that the sample ignited
+```{r}
+data.ignited <- data %>% 
+  filter(ignition == 1)
+```
+
+## Linear Modeling
+Prior to diving into MEM, linear models to compare with the mixed effects models:
+```{r}
+lm.lfm.1 <- lm(tti ~ lfm + sample.wt + start.temp + year.month + spp, data = data.ignited)
+
+lm.mpa.1 <- lm(tti ~ mpa + sample.wt + start.temp + year.month + spp, data = data.ignited)
+
+lm.both.1 <- lm(tti ~ lfm + mpa + sample.wt + start.temp + year.month + spp, data = data.ignited)
+```
+
+```{r}
+tab_model(lm.lfm.1, lm.mpa.1, lm.both.1, # tab_model() is function from sjPlot package
+          show.reflvl = TRUE, # show reference level
+          digits = 3, # number of digits to round to
+          show.aic = TRUE, # show AIC?
+          show.ci = FALSE, # show confidence interval?
+          show.r2 = TRUE, # show R^2 values
+          pred.labels = c('Intercept', 'Water Potential', 'LFM', 'Sample Wt.', 'Species (CEME)', 'Starting Temp.',
+          'Year, Month (2018, January)', 'Year, Month (2019, December)', 'Year, Month (2020, January)', 
+          'Year, Month (2020, September)'),# Labeling predictors
+          dv.labels = c("LFM", "Water Potential", "LFM and Water Potential"), # Labeling models
+          title = "Ex. 1: Predicting TTI, Linear Models", # Title
+          string.p = "P-Value", # Column heading for p-value column
+          p.style = "stars") # P-values represented by asterisks
+```
+
+## Linear Mixed Effects Modeling
+```{r}
+lme.lfm.1 <- lmer(tti ~ lfm + sample.wt + start.temp + year.month + spp + (1 | individual), data = data.ignited)
+
+lme.mpa.1 <- lmer(tti ~ mpa + sample.wt + start.temp + year.month + spp + (1 | individual), data = data.ignited)
+
+lme.both.1 <- lmer(tti ~ mpa + lfm + sample.wt + start.temp + year.month + spp + (1 | individual), data = data.ignited)
+```
+
+```{r}
+tab_model(lm.lfm.1, lm.mpa.1, lm.both.1, lme.lfm.1, lme.mpa.1, lme.both.1,
+          show.reflvl = TRUE, # show reference level
+          digits = 3, # number of digits to round to
+          show.aic = TRUE, # show AIC?
+          show.ci = FALSE, # show confidence interval?
+          show.r2 = TRUE, # show R^2 values
+          pred.labels = c('Intercept', 'Water Potential', 'LFM', 'Sample Wt.', 'Species (CEME)', 'Starting Temp.',
+          'Year, Month (2018, January)', 'Year, Month (2019, December)', 'Year, Month (2020, January)', 
+          'Year, Month (2020, September)'),# Labeling predictors
+          dv.labels = c("LFM (linear)", "MPa (linear)", "LFM and MPa (linear)", "LFM (MEM)", "MPa (MEM)",
+                        "LFM and MPa (MEM)"), # Labeling models
+          title = "Ex. 1: Predicting TTI, Linear Models AND Mixed Effects Models", # Title
+          string.p = "P-Value", # Column heading for p-value column
+          p.style = "stars") # P-values represented by asterisks
+```
+
+# Mixed Effects Models Background
+## Why use mixed effects models?
+
+Mixed effects models incorporate fixed and random effects into the model. This is especially useful for nested, clustered or repeated data. Without accounting for random effects, issues of pseudoreplication can occur.
+
+```{r}
+knitr::include_graphics("nested.and.repeated.data.jpg")
+```
+
+Other benefits:
+- Good for unbalanced sampling designs -- makes meeting assumptions easier
+- Easier to specify than complex ANOVA designs
+
+## Random vs. fixed effects
+```{r}
+knitr::include_graphics("fixed.and.random.effects.jpg")
+```
+
+I have also heard that categorical variables with less than a certain amount of levels should not be included as random effects, but looking online, it seems like this varies a good amount. 
+
+~~~ look into this more ~~~
+
+## Random intercepts vs. slopes
+```{r}
+knitr::include_graphics("random.slopes.and.intercepts.jpg")
+```
+
+Typically, you would use random intercepts or random intercepts & slopes. Unless there is good evidence for significant differences in slopes between groups, it is usually the safest (and easiest to interpret) option to use random intercepts.
+
+## Assumptions
+- Normality of residuals
+- Homogeneity of variance
+
+# Ex. 2: More in-depth mixed effects model selection
+
+Below resembles our linear MEM selection process, predicting flame height
+
+## Scaling LFM, water potential, and dry weight
+```{r}
+data.ignited <- data.ignited %>% 
+  mutate(lfm.scaled = scale(lfm)) %>% 
+  mutate(mpa.scaled = scale(mpa)) %>% 
+  mutate(dw.scaled = scale(dw.flam.sample))
+```
+
+## Testing multicollinearity of variables
+```{r}
+max.mod <- lmer(fh ~ lfm.scaled + mpa.scaled + dw.scaled + sample.wt + start.temp + year.month + spp + (1|individual), data = data.ignited)
+performance::multicollinearity(max.mod) # Look at if VIF > 4; in this case, lfm.scaled and dw.scaled are colinear as their VIF scores are > 4 which makes sense since lfm was used in calculation of dw.flam.sample. For future models, these two variables will not be used together
+
+max.mod.nolfm <- lmer(fh ~ mpa.scaled + dw.scaled + sample.wt + start.temp + year.month + spp + (1|individual), data = data.ignited)
+performance::multicollinearity(max.mod.nolfm) # No colinearity
+
+max.mod.nodw <- lmer(fh ~ lfm.scaled + mpa.scaled + sample.wt + start.temp + year.month + spp + (1|individual), data = data.ignited)
+performance::multicollinearity(max.mod.nodw) # No colinearity
+```
+
+## Model selection process
+```{r}
+
+```
+
