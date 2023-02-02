@@ -118,7 +118,7 @@ tab_model(lm.lfm.1, lm.mpa.1, lm.both.1, lme.lfm.1, lme.mpa.1, lme.both.1,
 Mixed effects models incorporate fixed and random effects into the model. This is especially useful for nested, clustered or repeated data. Without accounting for random effects, issues of pseudoreplication can occur.
 
 ```{r}
-knitr::include_graphics("nested.and.repeated.data.jpg")
+knitr::include_graphics("Images/nested.and.repeated.data.jpg")
 ```
 
 Other benefits:
@@ -127,7 +127,7 @@ Other benefits:
 
 ## Random vs. fixed effects
 ```{r}
-knitr::include_graphics("fixed.and.random.effects.jpg")
+knitr::include_graphics("Images/fixed.and.random.effects.jpg")
 ```
 
 I have also heard that categorical variables with less than a certain amount of levels should not be included as random effects, but looking online, it seems like this varies a good amount. 
@@ -136,7 +136,7 @@ I have also heard that categorical variables with less than a certain amount of 
 
 ## Random intercepts vs. slopes
 ```{r}
-knitr::include_graphics("random.slopes.and.intercepts.jpg")
+knitr::include_graphics("Images/random.slopes.and.intercepts.jpg")
 ```
 
 Typically, you would use random intercepts or random intercepts & slopes. Unless there is good evidence for significant differences in slopes between groups, it is usually the safest (and easiest to interpret) option to use random intercepts.
